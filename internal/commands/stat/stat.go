@@ -1,4 +1,4 @@
-package commands
+package stat
 
 import (
 	"fmt"

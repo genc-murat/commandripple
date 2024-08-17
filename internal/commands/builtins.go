@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"commandripple/internal/commands/processes"
+	"commandripple/internal/commands/stat"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -150,7 +151,7 @@ func ExecuteBuiltin(cmd string, args []string) error {
 	case "whoami":
 		return Whoami(args)
 	case "stat":
-		return Stat(args)
+		return stat.Stat(args)
 	case "dfi":
 		return DfInodes(args)
 	case "which":
