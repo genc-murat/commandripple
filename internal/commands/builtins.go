@@ -474,18 +474,6 @@ func Truncate(args []string) error {
 	return os.Truncate(args[0], size)
 }
 
-// Estimate file space usage of a directory
-func Du(args []string) error {
-	dir := "."
-	if len(args) > 0 {
-		dir = args[0]
-	}
-	cmd := exec.Command("du", "-sh", dir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 // Report file system disk space usage
 func Df(args []string) error {
 	cmd := exec.Command("df", "-h")
