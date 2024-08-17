@@ -400,14 +400,6 @@ func KillProcess(args []string) error {
 	return process.Kill()
 }
 
-// Built-in command implementations
-func ChangeDirectory(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("'cd' requires an argument")
-	}
-	return os.Chdir(args[0])
-}
-
 func PrintWorkingDirectory() error {
 	if dir, err := os.Getwd(); err != nil {
 		return err

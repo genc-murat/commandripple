@@ -32,7 +32,7 @@ func main() {
 
 	// Initialize readline
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "CommandRipple> ",
+		Prompt:          getPrompt(),
 		HistoryFile:     historyFile,
 		AutoComplete:    completer{},
 		InterruptPrompt: "^C",
@@ -65,7 +65,22 @@ func main() {
 		if err := executePipeline(line); err != nil {
 			fmt.Fprintf(os.Stderr, "CommandRipple: %v\n", err)
 		}
+
+		// Update prompt after each command execution
+		rl.SetPrompt(getPrompt())
 	}
+}
+
+func getPrompt() string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		pwd = "unknown"
+	}
+	// Shorten the path if it's too long
+	if len(pwd) > 30 {
+		pwd = "..." + pwd[len(pwd)-27:]
+	}
+	return fmt.Sprintf("\033[1;34m%s\033[0m CommandRipple> ", pwd)
 }
 
 func executePipeline(commandLine string) error {
