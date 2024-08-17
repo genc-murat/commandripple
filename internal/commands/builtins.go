@@ -325,17 +325,6 @@ func SendToBackground(args []string) error {
 	return nil
 }
 
-// Locate a command in the PATH
-func Which(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: which [command]")
-	}
-	cmd := exec.Command("which", args[0])
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 // Command History
 func ShowHistory() error {
 	for i, cmd := range history {
