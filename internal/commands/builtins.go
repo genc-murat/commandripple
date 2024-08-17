@@ -21,7 +21,7 @@ var (
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch", "stat", "dfi", "which", "killall":
 		return true
 	default:
 		return false
@@ -131,12 +131,31 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return Touch(args)
 	case "whoami":
 		return Whoami(args)
+	case "stat":
+		return Stat(args)
+	case "dfi":
+		return DfInodes(args)
+	case "which":
+		return Which(args)
+	case "killall":
+		return KillAll(args)
 	case "help":
 		PrintHelp()
 	default:
 		return fmt.Errorf("unknown builtin command: %s", cmd)
 	}
 	return nil
+}
+
+// Locate a command in the PATH
+func Which(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: which [command]")
+	}
+	cmd := exec.Command("which", args[0])
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // Command History
@@ -462,6 +481,36 @@ func Whoami(args []string) error {
 	return nil
 }
 
+// Report file system inode usage
+func DfInodes(args []string) error {
+	cmd := exec.Command("df", "-i")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// Display file or file system status
+func Stat(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: stat [file]")
+	}
+	cmd := exec.Command("stat", args[0])
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// Kill all processes by name
+func KillAll(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: killall [name]")
+	}
+	cmd := exec.Command("killall", args[0])
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 // Help function
 func PrintHelp() {
 	fmt.Println("CommandRipple - A simple shell implemented in Go")
@@ -495,6 +544,7 @@ func PrintHelp() {
 	fmt.Println("  date              Display the current date and time")
 	fmt.Println("  uptime            Display how long the shell has been running")
 	fmt.Println("  kill [PID]        Terminate a process by PID")
+	fmt.Println("  killall [name]    Kill all processes by name")
 	fmt.Println("  ps                List currently running processes")
 	fmt.Println("  whoami            Display the current user's username")
 	fmt.Println("  basename [path]   Strip directory and suffix from filenames")
@@ -508,10 +558,13 @@ func PrintHelp() {
 	fmt.Println("  truncate [file] -s [size] Truncate or extend the size of a file")
 	fmt.Println("  du [dir]          Estimate file space usage of a directory")
 	fmt.Println("  df                Report file system disk space usage")
+	fmt.Println("  dfi               Report file system inode usage")
 	fmt.Println("  ln [target] [link] Create a symbolic link between files")
 	fmt.Println("  tr [set1] [set2]  Translate or delete characters in a string")
 	fmt.Println("  ping [hostname]   Send ICMP ECHO_REQUEST to network hosts")
+	fmt.Println("  which [command]   Locate a command in the PATH")
 	fmt.Println("  ls [dir]          List directory contents with detailed file information")
+	fmt.Println("  stat [file]       Display file or file system status")
 	fmt.Println("  cal               Display a calendar")
 	fmt.Println("  help              Show this help message")
 	fmt.Println("\nPipes:")
