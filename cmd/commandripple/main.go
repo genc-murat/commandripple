@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,6 +8,13 @@ import (
 	"syscall"
 
 	"commandripple/internal/commands"
+
+	"github.com/chzyer/readline"
+)
+
+var (
+	history     []string
+	historyFile = "/tmp/commandripple_history"
 )
 
 func main() {
@@ -20,27 +26,43 @@ func main() {
 		for sig := range sigChan {
 			if sig == syscall.SIGINT {
 				fmt.Println("\nCTRL-C detected. Use 'exit' to quit the shell.")
-				fmt.Print("CommandRipple> ")
 			}
 		}
 	}()
 
-	scanner := bufio.NewScanner(os.Stdin)
+	// Initialize readline
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          "CommandRipple> ",
+		HistoryFile:     historyFile,
+		AutoComplete:    completer{},
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer rl.Close()
 
 	for {
-		fmt.Print("CommandRipple> ")
-
-		if !scanner.Scan() { // Reads input from the user
+		line, err := rl.Readline()
+		if err != nil { // io.EOF, readline.ErrInterrupt
 			break
 		}
 
-		commandLine := strings.TrimSpace(scanner.Text())
+		line = strings.TrimSpace(line)
 
-		if commandLine == "" {
+		if line == "exit" {
+			break
+		}
+
+		if line == "" {
 			continue
 		}
 
-		if err := executePipeline(commandLine); err != nil {
+		// Add command to history
+		readline.AddHistory(line)
+
+		if err := executePipeline(line); err != nil {
 			fmt.Fprintf(os.Stderr, "CommandRipple: %v\n", err)
 		}
 	}
@@ -87,4 +109,41 @@ func executeCommand(commandLine string) error {
 	} else {
 		return commands.ExecuteExternal(cmdName, cmdArgs)
 	}
+}
+
+// completer implements readline.AutoCompleter interface
+type completer struct{}
+
+func (c completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
+	// Simple completion logic - you can expand this
+	completions := []string{
+		"exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg",
+	}
+
+	lineStr := string(line[:pos])
+	var matches []string
+
+	for _, comp := range completions {
+		if strings.HasPrefix(comp, lineStr) {
+			matches = append(matches, comp)
+		}
+	}
+
+	if len(matches) == 0 {
+		return
+	}
+
+	// If there's only one match, return it
+	if len(matches) == 1 {
+		newLine = [][]rune{[]rune(matches[0][pos:])}
+		length = len(matches[0]) - pos
+		return
+	}
+
+	// If there are multiple matches, return them all
+	for _, match := range matches {
+		newLine = append(newLine, []rune(match))
+	}
+	length = pos
+	return
 }
