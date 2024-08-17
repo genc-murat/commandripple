@@ -9,19 +9,23 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 var (
-	history   []string
-	aliases   = make(map[string]string)
-	startTime = time.Now()
+	history     []string
+	aliases     = make(map[string]string)
+	startTime   = time.Now()
+	bgJobs      = make(map[int]*exec.Cmd) // Store background jobs
+	bgJobsMutex sync.Mutex                // To handle concurrent access to bgJobs
+	jobCounter  int                       // Unique identifier for jobs
 )
 
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch", "stat", "dfi", "which", "killall":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg":
 		return true
 	default:
 		return false
@@ -139,11 +143,108 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return Which(args)
 	case "killall":
 		return KillAll(args)
+	case "source":
+		return Source(args)
+	case "jobs":
+		return ListJobs()
+	case "fg":
+		return BringToForeground(args)
+	case "bg":
+		return SendToBackground(args)
 	case "help":
 		PrintHelp()
 	default:
 		return fmt.Errorf("unknown builtin command: %s", cmd)
 	}
+	return nil
+}
+
+// `jobs` command implementation
+func ListJobs() error {
+	bgJobsMutex.Lock()
+	defer bgJobsMutex.Unlock()
+
+	for id, cmd := range bgJobs {
+		fmt.Printf("[%d] %s\n", id, strings.Join(cmd.Args, " "))
+	}
+
+	return nil
+}
+
+// `source` command implementation
+func Source(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("'source' requires a filename")
+	}
+	file, err := os.Open(args[0])
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		commandLine := strings.TrimSpace(scanner.Text())
+		if commandLine == "" {
+			continue
+		}
+		if err := executeCommand(commandLine); err != nil {
+			fmt.Fprintf(os.Stderr, "CommandRipple: %v\n", err)
+		}
+	}
+
+	return scanner.Err()
+}
+
+// `fg` command implementation
+func BringToForeground(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("'fg' requires a job ID")
+	}
+
+	jobID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid job ID: %s", args[0])
+	}
+
+	bgJobsMutex.Lock()
+	cmd, exists := bgJobs[jobID]
+	if !exists {
+		bgJobsMutex.Unlock()
+		return fmt.Errorf("no such job: %d", jobID)
+	}
+	delete(bgJobs, jobID)
+	bgJobsMutex.Unlock()
+
+	// Bring the job to the foreground
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd.Wait()
+}
+
+// `bg` command implementation
+func SendToBackground(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("'bg' requires a command")
+	}
+
+	cmdName := args[0]
+	cmdArgs := args[1:]
+
+	command := exec.Command(cmdName, cmdArgs...)
+	jobCounter++
+	bgJobsMutex.Lock()
+	bgJobs[jobCounter] = command
+	bgJobsMutex.Unlock()
+
+	err := command.Start()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("[%d] %s\n", jobCounter, strings.Join(command.Args, " "))
 	return nil
 }
 
@@ -512,63 +613,136 @@ func KillAll(args []string) error {
 	return cmd.Run()
 }
 
+// Command execution helper
+func executeCommand(commandLine string) error {
+	parts := strings.Fields(commandLine)
+	cmdName := parts[0]
+	cmdArgs := parts[1:]
+
+	if IsBuiltinCommand(cmdName) {
+		return ExecuteBuiltin(cmdName, cmdArgs)
+	} else {
+		return ExecuteExternal(cmdName, cmdArgs)
+	}
+}
+
 // Help function
 func PrintHelp() {
 	PrintColor(Cyan, "CommandRipple - A simple shell implemented in Go")
 	PrintColor(White, "Built-in commands:")
-	fmt.Println("  cd [dir]          Change the current directory")
-	fmt.Println("  pwd               Print the current working directory")
-	fmt.Println("  echo [text]       Echo the input text back to the user")
-	fmt.Println("  clear             Clear the terminal screen")
-	fmt.Println("  mkdir [dir]       Create a new directory")
-	fmt.Println("  mkdirp [dir]      Create directories and parent directories if needed")
-	fmt.Println("  rmdir [dir]       Remove an empty directory")
-	fmt.Println("  rm [file]         Remove a file")
-	fmt.Println("  rmrf [dir]        Recursively remove a directory and its contents")
-	fmt.Println("  cp [src] [dest]   Copy a file")
-	fmt.Println("  mv [src] [dest]   Move or rename a file or directory")
-	fmt.Println("  touch [file]      Create an empty file or update timestamp")
-	fmt.Println("  touch -t [timestamp] [file] Create or update a file with a specific timestamp")
-	fmt.Println("  chmod [permissions] [file] Change file permissions")
-	fmt.Println("  chmodr [permissions] [dir] Recursively change permissions of a directory")
-	fmt.Println("  cat [file]        Display the content of a file")
-	fmt.Println("  head [file]       Display the first few lines of a file")
-	fmt.Println("  tail [file]       Display the last few lines of a file")
-	fmt.Println("  grep [pattern] [file] Search for a pattern in a file")
-	fmt.Println("  find [dir] [name] Search for a file or directory by name")
-	fmt.Println("  wc [file]         Count lines, words, and characters in a file")
-	fmt.Println("  env               Print environment variables")
-	fmt.Println("  export NAME=VALUE Set or modify environment variables")
-	fmt.Println("  history           Display command history")
-	fmt.Println("  alias name=command Create an alias for a command")
-	fmt.Println("  unalias name      Remove an alias")
-	fmt.Println("  date              Display the current date and time")
-	fmt.Println("  uptime            Display how long the shell has been running")
-	fmt.Println("  kill [PID]        Terminate a process by PID")
-	fmt.Println("  killall [name]    Kill all processes by name")
-	fmt.Println("  ps                List currently running processes")
-	fmt.Println("  whoami            Display the current user's username")
-	fmt.Println("  basename [path]   Strip directory and suffix from filenames")
-	fmt.Println("  dirname [path]    Extract the directory path from a full path")
-	fmt.Println("  sort [file]       Sort lines of a text file")
-	fmt.Println("  uniq [file]       Remove duplicate lines from a file")
-	fmt.Println("  cut [file] -d [delimiter] -f [field] Extract selected portions of each line")
-	fmt.Println("  tee [file]        Read from standard input and write to standard output and files")
-	fmt.Println("  log [message]     Append a log message to a log file")
-	fmt.Println("  calc [expression] Evaluate a simple arithmetic expression")
-	fmt.Println("  truncate [file] -s [size] Truncate or extend the size of a file")
-	fmt.Println("  du [dir]          Estimate file space usage of a directory")
-	fmt.Println("  df                Report file system disk space usage")
-	fmt.Println("  dfi               Report file system inode usage")
-	fmt.Println("  ln [target] [link] Create a symbolic link between files")
-	fmt.Println("  tr [set1] [set2]  Translate or delete characters in a string")
-	fmt.Println("  ping [hostname]   Send ICMP ECHO_REQUEST to network hosts")
-	fmt.Println("  which [command]   Locate a command in the PATH")
-	fmt.Println("  ls [dir]          List directory contents with detailed file information")
-	fmt.Println("  stat [file]       Display file or file system status")
-	fmt.Println("  cal               Display a calendar")
-	fmt.Println("  help              Show this help message")
-	fmt.Println("\nPipes:")
-	fmt.Println("  Use the '|' character to pipe the output of one command to the input of another.")
-	fmt.Println("  Example: cat file.txt | grep 'search' | sort")
+	PrintColor(Green, "  cd [dir]          ")
+	fmt.Println("Change the current directory")
+	PrintColor(Green, "  pwd               ")
+	fmt.Println("Print the current working directory")
+	PrintColor(Green, "  echo [text]       ")
+	fmt.Println("Echo the input text back to the user")
+	PrintColor(Green, "  clear             ")
+	fmt.Println("Clear the terminal screen")
+	PrintColor(Green, "  mkdir [dir]       ")
+	fmt.Println("Create a new directory")
+	PrintColor(Green, "  mkdirp [dir]      ")
+	fmt.Println("Create directories and parent directories if needed")
+	PrintColor(Green, "  rmdir [dir]       ")
+	fmt.Println("Remove an empty directory")
+	PrintColor(Green, "  rm [file]         ")
+	fmt.Println("Remove a file")
+	PrintColor(Green, "  rmrf [dir]        ")
+	fmt.Println("Recursively remove a directory and its contents")
+	PrintColor(Green, "  cp [src] [dest]   ")
+	fmt.Println("Copy a file")
+	PrintColor(Green, "  mv [src] [dest]   ")
+	fmt.Println("Move or rename a file or directory")
+	PrintColor(Green, "  touch [file]      ")
+	fmt.Println("Create an empty file or update timestamp")
+	PrintColor(Green, "  touch -t [timestamp] [file] ")
+	fmt.Println("Create or update a file with a specific timestamp")
+	PrintColor(Green, "  chmod [permissions] [file] ")
+	fmt.Println("Change file permissions")
+	PrintColor(Green, "  chmodr [permissions] [dir] ")
+	fmt.Println("Recursively change permissions of a directory")
+	PrintColor(Green, "  cat [file]        ")
+	fmt.Println("Display the content of a file")
+	PrintColor(Green, "  head [file]       ")
+	fmt.Println("Display the first few lines of a file")
+	PrintColor(Green, "  tail [file]       ")
+	fmt.Println("Display the last few lines of a file")
+	PrintColor(Green, "  grep [pattern] [file] ")
+	fmt.Println("Search for a pattern in a file")
+	PrintColor(Green, "  find [dir] [name] ")
+	fmt.Println("Search for a file or directory by name")
+	PrintColor(Green, "  wc [file]         ")
+	fmt.Println("Count lines, words, and characters in a file")
+	PrintColor(Green, "  env               ")
+	fmt.Println("Print environment variables")
+	PrintColor(Green, "  export NAME=VALUE ")
+	fmt.Println("Set or modify environment variables")
+	PrintColor(Green, "  history           ")
+	fmt.Println("Display command history")
+	PrintColor(Green, "  alias name=command ")
+	fmt.Println("Create an alias for a command")
+	PrintColor(Green, "  unalias name      ")
+	fmt.Println("Remove an alias")
+	PrintColor(Green, "  date              ")
+	fmt.Println("Display the current date and time")
+	PrintColor(Green, "  uptime            ")
+	fmt.Println("Display how long the shell has been running")
+	PrintColor(Green, "  kill [PID]        ")
+	fmt.Println("Terminate a process by PID")
+	PrintColor(Green, "  killall [name]    ")
+	fmt.Println("Kill all processes by name")
+	PrintColor(Green, "  ps                ")
+	fmt.Println("List currently running processes")
+	PrintColor(Green, "  whoami            ")
+	fmt.Println("Display the current user's username")
+	PrintColor(Green, "  basename [path]   ")
+	fmt.Println("Strip directory and suffix from filenames")
+	PrintColor(Green, "  dirname [path]    ")
+	fmt.Println("Extract the directory path from a full path")
+	PrintColor(Green, "  sort [file]       ")
+	fmt.Println("Sort lines of a text file")
+	PrintColor(Green, "  uniq [file]       ")
+	fmt.Println("Remove duplicate lines from a file")
+	PrintColor(Green, "  cut [file] -d [delimiter] -f [field] ")
+	fmt.Println("Extract selected portions of each line")
+	PrintColor(Green, "  tee [file]        ")
+	fmt.Println("Read from standard input and write to standard output and files")
+	PrintColor(Green, "  log [message]     ")
+	fmt.Println("Append a log message to a log file")
+	PrintColor(Green, "  calc [expression] ")
+	fmt.Println("Evaluate a simple arithmetic expression")
+	PrintColor(Green, "  truncate [file] -s [size] ")
+	fmt.Println("Truncate or extend the size of a file")
+	PrintColor(Green, "  du [dir]          ")
+	fmt.Println("Estimate file space usage of a directory")
+	PrintColor(Green, "  df                ")
+	fmt.Println("Report file system disk space usage")
+	PrintColor(Green, "  dfi               ")
+	fmt.Println("Report file system inode usage")
+	PrintColor(Green, "  ln [target] [link] ")
+	fmt.Println("Create a symbolic link between files")
+	PrintColor(Green, "  tr [set1] [set2]  ")
+	fmt.Println("Translate or delete characters in a string")
+	PrintColor(Green, "  ping [hostname]   ")
+	fmt.Println("Send ICMP ECHO_REQUEST to network hosts")
+	PrintColor(Green, "  which [command]   ")
+	fmt.Println("Locate a command in the PATH")
+	PrintColor(Green, "  ls [dir]          ")
+	fmt.Println("List directory contents with detailed file information")
+	PrintColor(Green, "  stat [file]       ")
+	fmt.Println("Display file or file system status")
+	PrintColor(Green, "  cal               ")
+	fmt.Println("Display a calendar")
+	PrintColor(Green, "  source [file]     ")
+	fmt.Println("Execute commands from a file")
+	PrintColor(Green, "  jobs              ")
+	fmt.Println("List background jobs")
+	PrintColor(Green, "  fg [job]          ")
+	fmt.Println("Bring a background job to the foreground")
+	PrintColor(Green, "  bg [job]          ")
+	fmt.Println("Send a job to the background")
+	PrintColor(Green, "  help              ")
+	fmt.Println("Show this help message")
+	PrintColor(White, "\nPipes:")
+	PrintColor(Green, "  Use the '|' character to pipe the output of one command to the input of another.")
+	fmt.Println("Example: cat file.txt | grep 'search' | sort")
 }
