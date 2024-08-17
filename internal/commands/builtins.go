@@ -384,22 +384,6 @@ func ShowUptime() error {
 	return nil
 }
 
-// Process Management
-func KillProcess(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("'kill' requires a PID")
-	}
-	pid, err := strconv.Atoi(args[0])
-	if err != nil {
-		return fmt.Errorf("invalid PID: %s", args[0])
-	}
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	return process.Kill()
-}
-
 func PrintWorkingDirectory() error {
 	if dir, err := os.Getwd(); err != nil {
 		return err
