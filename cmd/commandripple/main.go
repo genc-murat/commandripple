@@ -130,9 +130,15 @@ func executeCommand(commandLine string) error {
 type completer struct{}
 
 func (c completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
-	// Simple completion logic - you can expand this
 	completions := []string{
-		"exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg",
+		"exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp",
+		"rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep",
+		"find", "wc", "chmod", "chmodr", "env", "export", "history",
+		"alias", "unalias", "date", "uptime", "kill", "ps", "whoami",
+		"basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc",
+		"truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch",
+		"stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "compress",
+		"decompress", "tree", "watch",
 	}
 
 	lineStr := string(line[:pos])
