@@ -39,7 +39,7 @@ type JobInfo struct {
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress", "diff":
 		return true
 	default:
 		return false
@@ -175,6 +175,8 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return Compress(args)
 	case "decompress":
 		return Decompress(args)
+	case "diff":
+		return Diff(args)
 	case "help":
 		PrintHelp()
 	default:
@@ -860,6 +862,8 @@ func PrintHelp() {
 	fmt.Println("Compress a file using gzip")
 	PrintColor(Green, "  decompress [file] ")
 	fmt.Println("Decompress a file using gzip")
+	PrintColor(Green, "  diff [file1] [file2] ")
+	fmt.Println("Compare two files line by line")
 	PrintColor(Green, "  help              ")
 	fmt.Println("Show this help message")
 	PrintColor(White, "\nPipes:")
