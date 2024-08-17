@@ -1,7 +1,7 @@
 //go:build windows
 // +build windows
 
-package commands
+package which
 
 import (
 	"os"

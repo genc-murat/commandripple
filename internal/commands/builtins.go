@@ -16,6 +16,7 @@ import (
 
 	"commandripple/internal/commands/processes"
 	"commandripple/internal/commands/stat"
+	"commandripple/internal/commands/which"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -155,7 +156,7 @@ func ExecuteBuiltin(cmd string, args []string) error {
 	case "dfi":
 		return DfInodes(args)
 	case "which":
-		return Which(args)
+		return which.Which(args)
 	case "killall":
 		return processes.KillAll(args)
 	case "source":
