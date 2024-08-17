@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"commandripple/internal/commands/clear"
 	"commandripple/internal/commands/ls"
 	"commandripple/internal/commands/processes"
 	"commandripple/internal/commands/stat"
@@ -60,7 +61,7 @@ func ExecuteBuiltin(cmd string, args []string) error {
 	case "echo":
 		return Echo(args)
 	case "clear":
-		return ClearScreen()
+		return clear.ClearScreen()
 	case "mkdir":
 		return MakeDirectory(args)
 	case "rmdir":
@@ -397,12 +398,6 @@ func PrintWorkingDirectory() error {
 func Echo(args []string) error {
 	PrintColor(Cyan, strings.Join(args, " "))
 	return nil
-}
-
-func ClearScreen() error {
-	cmd := exec.Command("cmd", "/c", "cls")
-	cmd.Stdout = os.Stdout
-	return cmd.Run()
 }
 
 func MakeDirectory(args []string) error {
