@@ -689,17 +689,6 @@ func DfInodes(args []string) error {
 	return cmd.Run()
 }
 
-// Display file or file system status
-func Stat(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: stat [file]")
-	}
-	cmd := exec.Command("stat", args[0])
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 // Kill all processes by name
 func KillAll(args []string) error {
 	if len(args) < 1 {
