@@ -2,7 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -13,12 +13,12 @@ func Diff(args []string) error {
 		return fmt.Errorf("usage: diff [file1] [file2]")
 	}
 
-	file1, err := ioutil.ReadFile(args[0])
+	file1, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("error reading file1: %v", err)
 	}
 
-	file2, err := ioutil.ReadFile(args[1])
+	file2, err := os.ReadFile(args[1])
 	if err != nil {
 		return fmt.Errorf("error reading file2: %v", err)
 	}
