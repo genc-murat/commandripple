@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"commandripple/internal/commands/processes"
+
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -97,9 +99,9 @@ func ExecuteBuiltin(cmd string, args []string) error {
 	case "uptime":
 		return ShowUptime()
 	case "kill":
-		return KillProcess(args)
+		return processes.KillProcess(args)
 	case "ps":
-		return ListProcesses()
+		return processes.ListProcesses()
 	case "basename":
 		return Basename(args)
 	case "dirname":
@@ -154,7 +156,7 @@ func ExecuteBuiltin(cmd string, args []string) error {
 	case "which":
 		return Which(args)
 	case "killall":
-		return KillAll(args)
+		return processes.KillAll(args)
 	case "source":
 		return Source(args)
 	case "jobs":
@@ -386,13 +388,6 @@ func KillProcess(args []string) error {
 		return err
 	}
 	return process.Kill()
-}
-
-func ListProcesses() error {
-	cmd := exec.Command("tasklist") // On Unix-like systems, use "ps"
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 // Built-in command implementations
@@ -734,17 +729,6 @@ func Whoami(args []string) error {
 // Report file system inode usage
 func DfInodes(args []string) error {
 	cmd := exec.Command("df", "-i")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-// Kill all processes by name
-func KillAll(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: killall [name]")
-	}
-	cmd := exec.Command("killall", args[0])
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
