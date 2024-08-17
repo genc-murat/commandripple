@@ -13,16 +13,24 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 var (
 	history     []string
 	aliases     = make(map[string]string)
 	startTime   = time.Now()
-	bgJobs      = make(map[int]*exec.Cmd) // Store background jobs
-	bgJobsMutex sync.Mutex                // To handle concurrent access to bgJobs
-	jobCounter  int                       // Unique identifier for jobs
+	bgJobs      = make(map[int]*JobInfo) // Store background jobs
+	bgJobsMutex sync.Mutex               // To handle concurrent access to bgJobs
+	jobCounter  int                      // Unique identifier for jobs
 )
+
+type JobInfo struct {
+	Cmd       *exec.Cmd
+	StartTime time.Time
+	Status    string
+}
 
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
@@ -168,10 +176,30 @@ func ListJobs() error {
 	bgJobsMutex.Lock()
 	defer bgJobsMutex.Unlock()
 
-	for id, cmd := range bgJobs {
-		fmt.Printf("[%d] %s\n", id, strings.Join(cmd.Args, " "))
+	if len(bgJobs) == 0 {
+		fmt.Println("No background jobs running.")
+		return nil
 	}
 
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"ID", "Command", "Status", "Started", "Runtime"})
+
+	for id, jobInfo := range bgJobs {
+		command := strings.Join(jobInfo.Cmd.Args, " ")
+		status := jobInfo.Status
+		started := jobInfo.StartTime.Format("2006-01-02 15:04:05")
+		runtime := time.Since(jobInfo.StartTime).Round(time.Second).String()
+
+		table.Append([]string{
+			fmt.Sprintf("%d", id),
+			command,
+			status,
+			started,
+			runtime,
+		})
+	}
+
+	table.Render()
 	return nil
 }
 
@@ -212,20 +240,62 @@ func BringToForeground(args []string) error {
 	}
 
 	bgJobsMutex.Lock()
-	cmd, exists := bgJobs[jobID]
+	jobInfo, exists := bgJobs[jobID]
 	if !exists {
 		bgJobsMutex.Unlock()
 		return fmt.Errorf("no such job: %d", jobID)
 	}
+
+	if jobInfo.Status == "Completed" {
+		bgJobsMutex.Unlock()
+		return fmt.Errorf("job %d has already completed", jobID)
+	}
+
 	delete(bgJobs, jobID)
 	bgJobsMutex.Unlock()
 
 	// Bring the job to the foreground
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	jobInfo.Cmd.Stdout = os.Stdout
+	jobInfo.Cmd.Stderr = os.Stderr
+	jobInfo.Cmd.Stdin = os.Stdin
 
-	return cmd.Wait()
+	fmt.Printf("Bringing job %d to foreground: %s\n", jobID, strings.Join(jobInfo.Cmd.Args, " "))
+
+	err = jobInfo.Cmd.Wait()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("job exited with status %d", exitErr.ExitCode())
+		}
+		return fmt.Errorf("error waiting for job: %v", err)
+	}
+
+	return nil
+}
+
+// Helper function to create a new background job
+func StartBackgroundJob(cmd *exec.Cmd) (int, error) {
+	bgJobsMutex.Lock()
+	defer bgJobsMutex.Unlock()
+
+	jobCounter++
+	id := jobCounter
+
+	bgJobs[id] = &JobInfo{
+		Cmd:       cmd,
+		StartTime: time.Now(),
+		Status:    "Running",
+	}
+
+	go func() {
+		cmd.Wait()
+		bgJobsMutex.Lock()
+		if job, exists := bgJobs[id]; exists {
+			job.Status = "Completed"
+		}
+		bgJobsMutex.Unlock()
+	}()
+
+	return id, nil
 }
 
 // `bg` command implementation
@@ -238,17 +308,20 @@ func SendToBackground(args []string) error {
 	cmdArgs := args[1:]
 
 	command := exec.Command(cmdName, cmdArgs...)
-	jobCounter++
-	bgJobsMutex.Lock()
-	bgJobs[jobCounter] = command
-	bgJobsMutex.Unlock()
 
+	// Start the command
 	err := command.Start()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start command: %v", err)
 	}
 
-	fmt.Printf("[%d] %s\n", jobCounter, strings.Join(command.Args, " "))
+	// Add the job to bgJobs
+	jobID, err := StartBackgroundJob(command)
+	if err != nil {
+		return fmt.Errorf("failed to add job to background: %v", err)
+	}
+
+	fmt.Printf("[%d] %s\n", jobID, strings.Join(command.Args, " "))
 	return nil
 }
 
