@@ -39,7 +39,7 @@ type JobInfo struct {
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress":
 		return true
 	default:
 		return false
@@ -171,6 +171,10 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return Tree(args)
 	case "watch":
 		return Watch(args)
+	case "compress":
+		return Compress(args)
+	case "decompress":
+		return Decompress(args)
 	case "help":
 		PrintHelp()
 	default:
@@ -873,6 +877,10 @@ func PrintHelp() {
 	fmt.Println("Visualize directory structure as a tree")
 	PrintColor(Green, "  watch              ")
 	fmt.Println("Runs a specified command periodically and displays its output")
+	PrintColor(Green, "  compress [file]   ")
+	fmt.Println("Compress a file using gzip")
+	PrintColor(Green, "  decompress [file] ")
+	fmt.Println("Decompress a file using gzip")
 	PrintColor(Green, "  help              ")
 	fmt.Println("Show this help message")
 	PrintColor(White, "\nPipes:")
