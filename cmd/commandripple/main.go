@@ -12,33 +12,15 @@ import (
 )
 
 func main() {
-	// Create a channel to receive signals
+	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Create a channel to notify when a command is running
-	commandRunning := make(chan bool, 1)
 
 	go func() {
 		for sig := range sigChan {
 			if sig == syscall.SIGINT {
-				select {
-				case running := <-commandRunning:
-					if running {
-						// If a command is running, just notify it was interrupted
-						fmt.Println("\nCommand interrupted by CTRL-C")
-						commandRunning <- false
-					} else {
-						// If no command is running, just show the prompt again
-						fmt.Println("\nCTRL-C detected. Use 'exit' to quit the shell.")
-						fmt.Print("CommandRipple> ")
-						commandRunning <- false
-					}
-				default:
-					// Just show the prompt if nothing is running
-					fmt.Println("\nCTRL-C detected. Use 'exit' to quit the shell.")
-					fmt.Print("CommandRipple> ")
-				}
+				fmt.Println("\nCTRL-C detected. Use 'exit' to quit the shell.")
+				fmt.Print("CommandRipple> ")
 			}
 		}
 	}()
@@ -48,7 +30,7 @@ func main() {
 	for {
 		fmt.Print("CommandRipple> ")
 
-		if !scanner.Scan() {
+		if !scanner.Scan() { // Reads input from the user
 			break
 		}
 
@@ -58,11 +40,9 @@ func main() {
 			continue
 		}
 
-		commandRunning <- true
 		if err := executePipeline(commandLine); err != nil {
 			fmt.Fprintf(os.Stderr, "CommandRipple: %v\n", err)
 		}
-		commandRunning <- false
 	}
 }
 

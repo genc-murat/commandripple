@@ -200,7 +200,8 @@ func ShowDate() error {
 }
 
 func ShowUptime() error {
-	fmt.Printf("Uptime: %s\n", time.Since(startTime).String())
+	uptime := fmt.Sprintf("Uptime: %s", time.Since(startTime).String())
+	PrintColor(Green, uptime)
 	return nil
 }
 
@@ -245,7 +246,7 @@ func PrintWorkingDirectory() error {
 }
 
 func Echo(args []string) error {
-	fmt.Println(strings.Join(args, " "))
+	PrintColor(Cyan, strings.Join(args, " "))
 	return nil
 }
 
@@ -513,8 +514,8 @@ func KillAll(args []string) error {
 
 // Help function
 func PrintHelp() {
-	fmt.Println("CommandRipple - A simple shell implemented in Go")
-	fmt.Println("Built-in commands:")
+	PrintColor(Cyan, "CommandRipple - A simple shell implemented in Go")
+	PrintColor(White, "Built-in commands:")
 	fmt.Println("  cd [dir]          Change the current directory")
 	fmt.Println("  pwd               Print the current working directory")
 	fmt.Println("  echo [text]       Echo the input text back to the user")
