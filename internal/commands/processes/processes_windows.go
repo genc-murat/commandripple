@@ -8,5 +8,5 @@ import (
 )
 
 func getProcessListCommand() *exec.Cmd {
-	return exec.Command("tasklist")
+	return exec.Command("wmic", "process", "get", "ProcessId,ParentProcessId,UserModeTime,KernelModeTime,WorkingSetSize,CommandLine")
 }
