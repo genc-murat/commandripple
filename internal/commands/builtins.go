@@ -39,7 +39,7 @@ type JobInfo struct {
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree":
 		return true
 	default:
 		return false
@@ -167,6 +167,8 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return BringToForeground(args)
 	case "bg":
 		return SendToBackground(args)
+	case "tree":
+		return Tree(args)
 	case "help":
 		PrintHelp()
 	default:
@@ -865,6 +867,8 @@ func PrintHelp() {
 	fmt.Println("Bring a background job to the foreground")
 	PrintColor(Green, "  bg [job]          ")
 	fmt.Println("Send a job to the background")
+	PrintColor(Green, "  tree              ")
+	fmt.Println("Visualize directory structure as a tree")
 	PrintColor(Green, "  help              ")
 	fmt.Println("Show this help message")
 	PrintColor(White, "\nPipes:")
