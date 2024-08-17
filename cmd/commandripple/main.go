@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -50,15 +52,10 @@ func executePipeline(commandLine string) error {
 	commandsList := strings.Split(commandLine, "|")
 	numCommands := len(commandsList)
 
-	if numCommands == 1 {
-		// If there's no pipe, execute the command normally
-		return executeCommand(commandLine)
-	}
+	// To track the previous command's output pipe
+	var previousOutput io.ReadCloser
 
-	var commandsChain []commands.Command
-
-	// Create a list of commands to execute
-	for _, cmd := range commandsList {
+	for i, cmd := range commandsList {
 		trimmedCmd := strings.TrimSpace(cmd)
 		if trimmedCmd == "" {
 			continue
@@ -67,14 +64,45 @@ func executePipeline(commandLine string) error {
 		cmdName := strings.Fields(trimmedCmd)[0]
 		cmdArgs := strings.Fields(trimmedCmd)[1:]
 
-		commandsChain = append(commandsChain, commands.Command{
-			Name: cmdName,
-			Args: cmdArgs,
-		})
+		// Create the command object
+		command := exec.Command(cmdName, cmdArgs...)
+
+		// Set stdin to the previous command's output
+		if previousOutput != nil {
+			command.Stdin = previousOutput
+		}
+
+		// If it's not the last command, create a pipe
+		if i < numCommands-1 {
+			var err error
+			previousOutput, err = command.StdoutPipe()
+			if err != nil {
+				return fmt.Errorf("failed to create stdout pipe: %v", err)
+			}
+		} else {
+			// For the last command, connect stdout to the terminal
+			command.Stdout = os.Stdout
+		}
+
+		command.Stderr = os.Stderr
+
+		// Start the command
+		if err := command.Start(); err != nil {
+			return fmt.Errorf("failed to start command: %v", err)
+		}
+
+		// Wait for the command to finish
+		if err := command.Wait(); err != nil {
+			return fmt.Errorf("command failed: %v", err)
+		}
+
+		// Close the previous output if necessary
+		if previousOutput != nil {
+			previousOutput.Close()
+		}
 	}
 
-	// Execute the command pipeline
-	return commands.ExecutePipeline(commandsChain)
+	return nil
 }
 
 func executeCommand(commandLine string) error {
