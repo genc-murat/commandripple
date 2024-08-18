@@ -154,14 +154,12 @@ func (c completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 		return
 	}
 
-	// If there's only one match, return it
 	if len(matches) == 1 {
 		newLine = [][]rune{[]rune(matches[0][pos:])}
 		length = len(matches[0]) - pos
 		return
 	}
 
-	// If there are multiple matches, return them all
 	for _, match := range matches {
 		newLine = append(newLine, []rune(match))
 	}
