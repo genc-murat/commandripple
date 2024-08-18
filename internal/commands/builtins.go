@@ -17,6 +17,7 @@ import (
 	"commandripple/internal/commands/ls"
 	"commandripple/internal/commands/processes"
 	"commandripple/internal/commands/stat"
+	"commandripple/internal/commands/uname"
 	"commandripple/internal/commands/which"
 
 	"github.com/olekukonko/tablewriter"
@@ -40,7 +41,7 @@ type JobInfo struct {
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress", "diff", "free":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress", "diff", "free", "uname":
 		return true
 	default:
 		return false
@@ -180,6 +181,8 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return Diff(args)
 	case "free":
 		return free.Free(args)
+	case "uname":
+		return uname.Uname(args)
 	case "help":
 		PrintHelp()
 	default:
@@ -757,6 +760,8 @@ func PrintHelp() {
 	fmt.Println("Compare two files line by line")
 	PrintColor(Green, "  free              ")
 	fmt.Println("Display amount of free and used memory in the system")
+	PrintColor(Green, "  uname             ")
+	fmt.Println("Print system information")
 	PrintColor(Green, "  help              ")
 	fmt.Println("Show this help message")
 	PrintColor(White, "\nPipes:")
