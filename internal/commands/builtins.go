@@ -41,7 +41,7 @@ type JobInfo struct {
 // IsBuiltinCommand checks if the command is a built-in command.
 func IsBuiltinCommand(cmd string) bool {
 	switch cmd {
-	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress", "diff", "free", "uname":
+	case "exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp", "rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep", "find", "wc", "chmod", "chmodr", "env", "export", "history", "alias", "unalias", "date", "uptime", "kill", "ps", "whoami", "basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc", "truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "lsc", "cal", "touch", "stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "tree", "watch", "compress", "decompress", "diff", "free", "uname", "file_transfer", "remote_execute":
 		return true
 	default:
 		return false
@@ -183,6 +183,10 @@ func ExecuteBuiltin(cmd string, args []string) error {
 		return free.Free(args)
 	case "uname":
 		return uname.Uname(args)
+	case "file_transfer":
+		return FileTransfer(args)
+	case "remote_execute":
+		return RemoteExecute(args)
 	case "help":
 		PrintHelp()
 	default:
@@ -762,6 +766,10 @@ func PrintHelp() {
 	fmt.Println("Display amount of free and used memory in the system")
 	PrintColor(Green, "  uname             ")
 	fmt.Println("Print system information")
+	PrintColor(Green, "  file_transfer     ")
+	fmt.Println("Transfer files between systems using ssh")
+	PrintColor(Green, "  remote_execute    ")
+	fmt.Println("Execute a command on a remote machine via SSH")
 	PrintColor(Green, "  help              ")
 	fmt.Println("Show this help message")
 	PrintColor(White, "\nPipes:")
