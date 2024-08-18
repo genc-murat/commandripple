@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -14,7 +15,7 @@ import (
 
 var (
 	history     []string
-	historyFile = "/tmp/commandripple_history"
+	historyFile = filepath.Join(os.TempDir(), "commandripple_history")
 )
 
 func main() {
@@ -34,7 +35,7 @@ func main() {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          getPrompt(),
 		HistoryFile:     historyFile,
-		AutoComplete:    completer{},
+		AutoComplete:    newCompleter(),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
 	})
@@ -129,8 +130,45 @@ func executeCommand(commandLine string) error {
 // completer implements readline.AutoCompleter interface
 type completer struct{}
 
-func (c completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
-	completions := []string{
+func newCompleter() *completer {
+	return &completer{}
+}
+
+func (c *completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
+	lineStr := string(line[:pos])
+	parts := strings.Fields(lineStr)
+
+	if len(parts) == 0 {
+		return c.completeCommands(lineStr)
+	}
+
+	cmdName := parts[0]
+	if len(parts) == 1 {
+		return c.completeCommands(lineStr)
+	}
+
+	// Check if we're completing a path
+	if strings.Contains(parts[len(parts)-1], string(os.PathSeparator)) || strings.Contains(parts[len(parts)-1], ".") {
+		return c.completeFilesDirs(lineStr)
+	}
+
+	// Command-specific argument completion
+	switch cmdName {
+	case "cd", "ls", "rm", "mv", "cp":
+		return c.completeFilesDirs(lineStr)
+	case "chmod":
+		if len(parts) == 2 {
+			return c.completeChmodArgs(lineStr)
+		}
+		return c.completeFilesDirs(lineStr)
+	// Add more command-specific completions here
+	default:
+		return c.completeFilesDirs(lineStr)
+	}
+}
+
+func (c *completer) completeCommands(lineStr string) (newLine [][]rune, length int) {
+	commands := []string{
 		"exit", "cd", "pwd", "echo", "clear", "mkdir", "mkdirp",
 		"rmdir", "rm", "rmrf", "cp", "mv", "head", "tail", "grep",
 		"find", "wc", "chmod", "chmodr", "env", "export", "history",
@@ -141,9 +179,42 @@ func (c completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 		"decompress", "tree", "watch",
 	}
 
-	lineStr := string(line[:pos])
+	return c.filterCompletions(lineStr, commands)
+}
+
+func (c *completer) completeFilesDirs(lineStr string) (newLine [][]rune, length int) {
+	parts := strings.Fields(lineStr)
+	lastPart := parts[len(parts)-1]
+	dir := filepath.Dir(lastPart)
+	prefix := filepath.Base(lastPart)
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, 0
+	}
+
 	var matches []string
 
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, prefix) {
+			if entry.IsDir() {
+				name += string(os.PathSeparator)
+			}
+			matches = append(matches, filepath.Join(dir, name))
+		}
+	}
+
+	return c.filterCompletions(lastPart, matches)
+}
+
+func (c *completer) completeChmodArgs(lineStr string) (newLine [][]rune, length int) {
+	chmodArgs := []string{"644", "755", "777", "600", "400"}
+	return c.filterCompletions(lineStr, chmodArgs)
+}
+
+func (c *completer) filterCompletions(lineStr string, completions []string) (newLine [][]rune, length int) {
+	var matches []string
 	for _, comp := range completions {
 		if strings.HasPrefix(comp, lineStr) {
 			matches = append(matches, comp)
@@ -155,14 +226,14 @@ func (c completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 	}
 
 	if len(matches) == 1 {
-		newLine = [][]rune{[]rune(matches[0][pos:])}
-		length = len(matches[0]) - pos
+		newLine = [][]rune{[]rune(matches[0][len(lineStr):])}
+		length = len(matches[0])
 		return
 	}
 
 	for _, match := range matches {
 		newLine = append(newLine, []rune(match))
 	}
-	length = pos
+	length = len(lineStr)
 	return
 }
