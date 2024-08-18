@@ -3,13 +3,11 @@ package commands
 import (
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 )
 
 // FileTransfer transfers a file to or from a remote machine using SSH
@@ -43,22 +41,6 @@ func FileTransfer(args []string) error {
 		return uploadFile(client, source, destination)
 	}
 	return downloadFile(client, source, destination)
-}
-
-func getSSHConfig(user string) (*ssh.ClientConfig, error) {
-	agentConn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to SSH agent: %v", err)
-	}
-
-	agentClient := agent.NewClient(agentConn)
-	return &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeysCallback(agentClient.Signers),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}, nil
 }
 
 func uploadFile(client *ssh.Client, source, destination string) error {

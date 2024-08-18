@@ -176,7 +176,7 @@ func (c *completer) completeCommands(lineStr string) (newLine [][]rune, length i
 		"basename", "dirname", "sort", "uniq", "cut", "tee", "log", "calc",
 		"truncate", "du", "df", "ln", "tr", "help", "ping", "ls", "cal", "touch",
 		"stat", "dfi", "which", "killall", "source", "jobs", "fg", "bg", "compress",
-		"decompress", "tree", "watch", "free", "uname",
+		"decompress", "tree", "watch", "free", "uname", "remote_execute", "file_transfer",
 	}
 
 	return c.filterCompletions(lineStr, commands)

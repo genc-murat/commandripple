@@ -24,7 +24,7 @@ func RemoteExecute(args []string) error {
 	command := strings.Join(args[3:], " ") // Allow multi-word commands
 
 	// Setup SSH client configuration
-	config, err := getSSHForRemoteConfig(user)
+	config, err := getSSHConfig(user)
 	if err != nil {
 		return fmt.Errorf("failed to configure SSH client: %v", err)
 	}
@@ -53,10 +53,10 @@ func RemoteExecute(args []string) error {
 	return nil
 }
 
-func getSSHForRemoteConfig(user string) (*ssh.ClientConfig, error) {
+func getSSHConfig(user string) (*ssh.ClientConfig, error) {
 	authMethods, err := getAuthMethods()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get authentication methods: %v", err)
 	}
 
 	return &ssh.ClientConfig{
@@ -69,14 +69,20 @@ func getSSHForRemoteConfig(user string) (*ssh.ClientConfig, error) {
 func getAuthMethods() ([]ssh.AuthMethod, error) {
 	var authMethods []ssh.AuthMethod
 
-	// Try SSH Agent first
-	if sshAgentAuth, err := getSSHAgentAuth(); err == nil {
-		authMethods = append(authMethods, sshAgentAuth)
-	}
-
-	// Then try SSH key authentication
+	// Try SSH key authentication first
 	if sshKeyAuth, err := getSSHKeyAuth(); err == nil {
 		authMethods = append(authMethods, sshKeyAuth)
+	} else {
+		fmt.Printf("SSH key authentication failed: %v\n", err)
+	}
+
+	// Try SSH Agent if key auth failed
+	if len(authMethods) == 0 {
+		if sshAgentAuth, err := getSSHAgentAuth(); err == nil {
+			authMethods = append(authMethods, sshAgentAuth)
+		} else {
+			fmt.Printf("SSH agent authentication failed: %v\n", err)
+		}
 	}
 
 	if len(authMethods) == 0 {
@@ -87,10 +93,22 @@ func getAuthMethods() ([]ssh.AuthMethod, error) {
 }
 
 func getSSHAgentAuth() (ssh.AuthMethod, error) {
-	if sshAgentConn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK")); err == nil {
-		return ssh.PublicKeysCallback(agent.NewClient(sshAgentConn).Signers), nil
+	if runtime.GOOS == "windows" {
+		return nil, fmt.Errorf("SSH Agent auth not implemented for Windows")
 	}
-	return nil, fmt.Errorf("failed to connect to SSH agent")
+
+	socket := os.Getenv("SSH_AUTH_SOCK")
+	if socket == "" {
+		return nil, fmt.Errorf("SSH_AUTH_SOCK not set")
+	}
+
+	conn, err := net.Dial("unix", socket)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open SSH_AUTH_SOCK: %v", err)
+	}
+
+	agentClient := agent.NewClient(conn)
+	return ssh.PublicKeysCallback(agentClient.Signers), nil
 }
 
 func getSSHKeyAuth() (ssh.AuthMethod, error) {
@@ -100,13 +118,9 @@ func getSSHKeyAuth() (ssh.AuthMethod, error) {
 	}
 
 	keyFile := filepath.Join(home, ".ssh", "id_rsa")
-	if runtime.GOOS == "windows" {
-		keyFile = filepath.Join(home, ".ssh", "id_rsa")
-	}
-
 	key, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read private key: %v", err)
+		return nil, fmt.Errorf("unable to read private key from %s: %v", keyFile, err)
 	}
 
 	signer, err := ssh.ParsePrivateKey(key)
